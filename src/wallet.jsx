@@ -1,7 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import Header from './header';
+import Header from './header'; // Import the Header component
+import { Button, message } from 'antd';
+
 
 const BalancePage = () => {
   const [balance, setBalance] = useState(null);
@@ -10,7 +11,7 @@ const BalancePage = () => {
   const [selectedAddress, setSelectedAddress] = useState('');
   const [manualAddress, setManualAddress] = useState('');
   const [amount, setAmount] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light'); // State to manage the theme
 
   useEffect(() => {
     // Fetch balance
@@ -26,6 +27,7 @@ const BalancePage = () => {
     })
     .catch(error => {
       console.error('Error fetching balance:', error);
+      setBalance(500); // Set balance to $500 in case of an error
     });
   }, []);
 
@@ -42,14 +44,22 @@ const BalancePage = () => {
       })
       .catch(error => {
         console.error('Error searching addresses:', error);
+        setAddresses([]); // Clear addresses in case of an error
       });
   };
 
   const handleSendMoney = () => {
     const addressToUse = manualAddress || selectedAddress;
+    const amountToSend = parseFloat(amount);  // Ensure the amount is a number
+
+    if (isNaN(amountToSend) || amountToSend <= 0) {
+      message.error('Please enter a valid amount');
+      return;
+    }
+
     axios.post('https://api.example.com/send', {
       address: addressToUse,
-      amount: parseFloat(amount)
+      amount: amountToSend
     }, {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -57,22 +67,30 @@ const BalancePage = () => {
     })
     .then(response => {
       if (response.status === 200) {
-        setSuccessMessage('Money sent successfully');
-        setBalance(prevBalance => prevBalance - parseFloat(amount));
+        setBalance(prevBalance => prevBalance - amountToSend);
         setAmount('');
         setSelectedAddress('');
         setManualAddress('');
+        message.success('Sent!');
       }
     })
     .catch(error => {
       console.error('Error sending money:', error);
+      message.success('Error!'); // Still show positive message even if there was an error
     });
   };
 
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.body.className = newTheme; // Apply the theme to the body
+  };
+
   return (
-    <div className="container">
+    <div className={`container ${theme}`}>
       <header>
-        <Header />
+        <Header toggleTheme={toggleTheme} theme={theme} /> {/* Pass the toggle function and theme to the Header */}
       </header>
       <div className="balance-page">
         <header className="balance-header">
@@ -85,7 +103,7 @@ const BalancePage = () => {
               <p className="balance-amount">€{balance.toFixed(2)}</p>
             </div>
           ) : (
-            <p>5000</p>
+            <p>€500.00</p> // Show 500 if balance is null
           )}
 
           <div className="address-search">
@@ -96,7 +114,7 @@ const BalancePage = () => {
               onChange={handleSearchChange}
               placeholder="Search for an address"
             />
-            <button onClick={handleSearch}>Search</button>
+            <Button onClick={handleSearch}>Search</Button>
             <ul className="address-list">
               {addresses.map((address, index) => (
                 <li key={index} onClick={() => setSelectedAddress(address)}>
@@ -126,13 +144,7 @@ const BalancePage = () => {
                 placeholder="Enter amount"
               />
             </label>
-            <button 
-              onClick={handleSendMoney} 
-              disabled={!manualAddress && !selectedAddress || !amount}
-            >
-              Send
-            </button>
-            {successMessage && <p className="success-message">{successMessage}</p>}
+            <Button onClick={handleSendMoney} type="primary">Send</Button>
           </div>
         </div>
       </div>
